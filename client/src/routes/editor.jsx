@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Canvas, Rect } from "fabric";
+import { Canvas, FabricImage } from "fabric";
 import * as React from "react";
+import { ZoomSlider } from "../components/editor/ZoomSlider.jsx";
+
 
 export const Route = createFileRoute("/editor")({
   component: RouteComponent,
@@ -15,6 +17,10 @@ function RouteComponent() {
   const lastPosXRef = React.useRef(0);
   const lastPosYRef = React.useRef(0);
   const isDragging = React.useRef(false);
+  const [error, setError] = React.useState(null);
+
+  const [zoomLevel, setZoomLevel] = React.useState(100);
+  const [gridSize, setGridSize] = React.useState(48);
 
   React.useEffect(() => {
     if (canvasRef.current) {
@@ -30,26 +36,38 @@ function RouteComponent() {
 
       setCanvas(initCanvas);
 
-      const redSquare = new Rect({
-        left: 100,
-        top: 100,
-        fill: "red",
-        width: 100,
-        height: 100,
-        selectable: true,
-      });
+      const loadImage = async (url) => {
+        try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const reader = new FileReader();
 
-      const blueSquare = new Rect({
-        left: 300,
-        top: 150,
-        fill: "blue",
-        width: 80,
-        height: 80,
-        selectable: true,
-      });
+          reader.onload = (e) => {
+            const imgElement = new window.Image();
+            imgElement.src = e.target.result;
 
-      initCanvas.add(redSquare, blueSquare);
-      initCanvas.renderAll();
+            imgElement.onload = () => {
+              const fabricImage = new FabricImage(imgElement, {
+                scaleX: 0.5,
+                scaleY: 0.5,
+              });
+
+              initCanvas.add(fabricImage);
+              initCanvas.centerObject(fabricImage);
+              initCanvas.setActiveObject(fabricImage);
+              initCanvas.renderAll();
+            };
+          };
+
+          reader.readAsDataURL(blob);
+        } catch {
+          setError("Failed to load image. Please try again.");
+        }
+      };
+
+      loadImage("https://wisp.rex.wf/x/_72hrs");
+      loadImage("https://wisp.rex.wf/x/quantinium_dev");
+      loadImage("https://wisp.rex.wf/x/marinn1_");
 
       return () => {
         initCanvas.dispose();
@@ -59,14 +77,28 @@ function RouteComponent() {
 
   const toggleMode = () => {
     setIsHandMode((prev) => !prev);
+
+    if (canvas) {
+      canvas.discardActiveObject();
+
+      canvas.getObjects().forEach((obj) => {
+        obj.selectable = !isHandMode; 
+      });
+
+      canvas.renderAll();
+    }
   };
 
   React.useEffect(() => {
     if (canvas) {
-      canvas.selection = !isHandMode; 
+      canvas.selection = !isHandMode;
       canvas.defaultCursor = isHandMode ? "grab" : "default";
+      if (isHandMode) {
+        canvas.discardActiveObject();
+      }
+
       canvas.getObjects().forEach((obj) => {
-        obj.selectable = !isHandMode; 
+        obj.selectable = !isHandMode;
       });
       canvas.renderAll();
     }
@@ -133,12 +165,13 @@ function RouteComponent() {
 
   const backgroundStyle = {
     backgroundPosition: `${backgroundPosition.x}px ${backgroundPosition.y}px`,
+    backgroundSize: `${gridSize}px ${gridSize}px`,
   };
 
   return (
     <div
       ref={containerRef}
-      className="w-screen h-screen overflow-hidden bg-violet-400 bg-[linear-gradient(to_right,#80808042_1px,transparent_1px),linear-gradient(to_bottom,#80808042_1px,transparent_1px)] bg-[size:48px_48px] inset-0"
+      className="w-screen h-screen overflow-hidden bg-violet-400 bg-[linear-gradient(to_right,#80808042_1px,transparent_1px),linear-gradient(to_bottom,#80808042_1px,transparent_1px)] inset-0"
       style={backgroundStyle}
     >
       <div className="absolute top-4 left-4 z-10">
@@ -149,7 +182,10 @@ function RouteComponent() {
           {isHandMode ? "Switch to Selection Mode" : "Switch to Hand Mode"}
         </button>
       </div>
+      {error && <p className="absolute top-16 left-4 text-red-500">{error}</p>}
       <canvas ref={canvasRef} />
+      <ZoomSlider canvas={canvas} zoomLevel={zoomLevel}
+        onZoomChange={setZoomLevel} setGridSize={setGridSize} />
     </div>
   );
 }

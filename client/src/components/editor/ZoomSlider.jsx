@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange }) => {
+export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange, setGridSize }) => {
   const handleZoomChange = useCallback(
     (event) => {
       const newZoomLevel = Number(event.target.value);
@@ -18,6 +18,8 @@ export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange }) => {
       if (onZoomChange) {
         onZoomChange(newZoomLevel);
       }
+
+    setGridSize(48 * (newZoomLevel / 100));
     },
     [canvas, onZoomChange],
   );
@@ -30,7 +32,7 @@ export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange }) => {
         <input
           type="range"
           min="25"
-          max="200"
+          max="500"
           step="1"
           value={zoomLevel}
           onChange={handleZoomChange}

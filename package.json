@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "konva": "^9.3.19",
-    "react-konva": "^19.0.3"
-  }
-}
