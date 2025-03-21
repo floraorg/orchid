@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Canvas, FabricImage } from "fabric";
+import { Canvas, FabricImage, Group } from "fabric";
 import * as React from "react";
 import { ZoomSlider } from "../components/editor/ZoomSlider.jsx";
-
+import { useKeyboard } from "../hooks/useKeyboard.jsx";
 
 export const Route = createFileRoute("/editor")({
   component: RouteComponent,
@@ -21,6 +21,148 @@ function RouteComponent() {
 
   const [zoomLevel, setZoomLevel] = React.useState(100);
   const [gridSize, setGridSize] = React.useState(48);
+  const layerControlsRef = React.useRef(null);
+
+  const handleGrouping = React.useCallback(() => {
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    if (activeObject.type === "group") {
+      const clonePromises = activeObject._objects.map(item => item.clone());
+      Promise.all(clonePromises).then(items => {
+        const groupLeft = activeObject.left || 0;
+        const groupTop = activeObject.top || 0;
+        const groupScaleX = activeObject.scaleX || 1;
+        const groupScaleY = activeObject.scaleY || 1;
+        const groupAngle = activeObject.angle || 0;
+
+        canvas.remove(activeObject);
+
+        items.forEach(item => {
+          let itemLeft = item.left || 0;
+          let itemTop = item.top || 0;
+
+          itemLeft = itemLeft * groupScaleX;
+          itemTop = itemTop * groupScaleY;
+
+          if (groupAngle !== 0) {
+            const angleRadians = groupAngle * Math.PI / 180;
+            const rotatedX = itemLeft * Math.cos(angleRadians) - itemTop * Math.sin(angleRadians);
+            const rotatedY = itemLeft * Math.sin(angleRadians) + itemTop * Math.cos(angleRadians);
+            itemLeft = rotatedX;
+            itemTop = rotatedY;
+          }
+
+          itemLeft += groupLeft;
+          itemTop += groupTop;
+
+          item.canvas = null;
+
+          console.log(item)
+          item.set({
+            left: itemLeft,
+            top: itemTop,
+            scaleX: (item.scaleX || 1) * groupScaleX,
+            scaleY: (item.scaleY || 1) * groupScaleY,
+            angle: (item.angle || 0) + groupAngle,
+            selectable: !isHandMode
+          });
+
+          canvas.add(item);
+          item.setCoords();
+        });
+
+        canvas.requestRenderAll();
+      })
+    } else {
+      const selectedObjects = canvas.getActiveObjects();
+      if (selectedObjects.length <= 1) return;
+
+      let minX = Number.MAX_VALUE, minY = Number.MAX_VALUE;
+      let maxX = Number.MIN_VALUE, maxY = Number.MIN_VALUE;
+
+      selectedObjects.forEach(obj => {
+        const objCoords = obj.getBoundingRect();
+        minX = Math.min(minX, objCoords.left);
+        minY = Math.min(minY, objCoords.top);
+        maxX = Math.max(maxX, objCoords.left + objCoords.width);
+        maxY = Math.max(maxY, objCoords.top + objCoords.height);
+      });
+
+      const selectionCenter = {
+        x: minX + (maxX - minX) / 2,
+        y: minY + (maxY - minY) / 2
+      };
+
+      const group = new Group(selectedObjects, {
+        left: selectionCenter.x,
+        top: selectionCenter.y,
+        originX: 'center',
+        originY: 'center',
+        canvas: canvas
+      });
+
+      selectedObjects.forEach(obj => canvas.remove(obj));
+      canvas.add(group);
+      canvas.setActiveObject(group);
+      canvas.requestRenderAll();
+    }
+  }, [canvas, isHandMode]);
+
+  const moveObjectUp = React.useCallback(() => {
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+    
+    const objects = canvas.getObjects();
+    const currentIndex = objects.indexOf(activeObject);
+    
+    const newIndex = Math.min(currentIndex + 1, objects.length - 1);
+    
+    if (newIndex !== currentIndex) {
+      canvas.moveObjectTo(activeObject, newIndex);
+      canvas.requestRenderAll();
+    }
+  }, [canvas]);
+
+  const moveObjectDown = React.useCallback(() => {
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+    
+    const objects = canvas.getObjects();
+    const currentIndex = objects.indexOf(activeObject);
+    
+    const newIndex = Math.max(currentIndex - 1, 0);
+    
+    if (newIndex !== currentIndex) {
+      canvas.moveObjectTo(activeObject, newIndex);
+      canvas.requestRenderAll();
+    }
+  }, [canvas]);
+
+  useKeyboard({
+    'ctrl g': handleGrouping,
+    'ctrl up': moveObjectUp,
+    'ctrl down': moveObjectDown,
+  });
+
+  const updateLayerControlsPosition = React.useCallback(() => {
+    if (!canvas || !layerControlsRef.current) return;
+    
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) {
+      layerControlsRef.current.style.display = 'none';
+      return;
+    }
+    
+    const bound = activeObject.getBoundingRect();
+    
+    layerControlsRef.current.style.display = 'flex';
+    layerControlsRef.current.style.left = `${bound.left + bound.width / 2}px`;
+    layerControlsRef.current.style.top = `${bound.top - 40}px`;
+  }, [canvas]);
 
   React.useEffect(() => {
     if (canvasRef.current) {
@@ -65,8 +207,8 @@ function RouteComponent() {
         }
       };
 
-      loadImage("https://wisp.rex.wf/x/_72hrs");
-      loadImage("https://wisp.rex.wf/x/quantinium_dev");
+      loadImage("https://wisp.rex.wf/x/seatedro");
+      loadImage("https://wisp.rex.wf/x/minamisatokun");
       loadImage("https://wisp.rex.wf/x/marinn1_");
 
       return () => {
@@ -75,6 +217,54 @@ function RouteComponent() {
     }
   }, []);
 
+  React.useEffect(() => {
+    if (!canvas) return;
+
+    const handleSelectionCreated = () => {
+      updateLayerControlsPosition();
+    };
+
+    const handleSelectionUpdated = () => {
+      updateLayerControlsPosition();
+    };
+
+    const handleSelectionCleared = () => {
+      if (layerControlsRef.current) {
+        layerControlsRef.current.style.display = 'none';
+      }
+    };
+
+    const handleObjectModified = () => {
+      updateLayerControlsPosition();
+    };
+
+    const handleCanvasRendered = () => {
+      updateLayerControlsPosition();
+    };
+
+    canvas.on('selection:created', handleSelectionCreated);
+    canvas.on('selection:updated', handleSelectionUpdated);
+    canvas.on('selection:cleared', handleSelectionCleared);
+    canvas.on('object:modified', handleObjectModified);
+    canvas.on('object:moving', handleObjectModified);
+    canvas.on('object:scaling', handleObjectModified);
+    canvas.on('object:rotating', handleObjectModified);
+    canvas.on('after:render', handleCanvasRendered);
+    canvas.on('mouse:wheel', handleObjectModified);
+
+    return () => {
+      canvas.off('selection:created', handleSelectionCreated);
+      canvas.off('selection:updated', handleSelectionUpdated);
+      canvas.off('selection:cleared', handleSelectionCleared);
+      canvas.off('object:modified', handleObjectModified);
+      canvas.off('object:moving', handleObjectModified);
+      canvas.off('object:scaling', handleObjectModified);
+      canvas.off('object:rotating', handleObjectModified);
+      canvas.off('after:render', handleCanvasRendered);
+      canvas.off('mouse:wheel', handleObjectModified);
+    };
+  }, [canvas, updateLayerControlsPosition]);
+
   const toggleMode = () => {
     setIsHandMode((prev) => !prev);
 
@@ -82,7 +272,7 @@ function RouteComponent() {
       canvas.discardActiveObject();
 
       canvas.getObjects().forEach((obj) => {
-        obj.selectable = !isHandMode; 
+        obj.selectable = !isHandMode;
       });
 
       canvas.renderAll();
@@ -163,6 +353,23 @@ function RouteComponent() {
     }
   }, [canvas, isHandMode]);
 
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (canvas) {
+        canvas.setDimensions({
+          width: window.innerWidth,
+          height: window.innerHeight
+        });
+        canvas.renderAll();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [canvas]);
+
   const backgroundStyle = {
     backgroundPosition: `${backgroundPosition.x}px ${backgroundPosition.y}px`,
     backgroundSize: `${gridSize}px ${gridSize}px`,
@@ -174,16 +381,49 @@ function RouteComponent() {
       className="w-screen h-screen overflow-hidden bg-violet-400 bg-[linear-gradient(to_right,#80808042_1px,transparent_1px),linear-gradient(to_bottom,#80808042_1px,transparent_1px)] inset-0"
       style={backgroundStyle}
     >
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 flex gap-2">
         <button
           onClick={toggleMode}
           className="px-4 py-2 bg-white rounded shadow hover:bg-gray-100"
         >
           {isHandMode ? "Switch to Selection Mode" : "Switch to Hand Mode"}
         </button>
+        <button
+          onClick={handleGrouping}
+          className="px-4 py-2 bg-white rounded shadow hover:bg-gray-100"
+          disabled={isHandMode}
+        >
+          {canvas?.getActiveObject()?.type === "group" ? "Ungroup" : "Group"} (Ctrl+G)
+        </button>
       </div>
       {error && <p className="absolute top-16 left-4 text-red-500">{error}</p>}
       <canvas ref={canvasRef} />
+      
+      <div 
+        ref={layerControlsRef}
+        className="absolute z-20 flex gap-2 bg-white rounded shadow-md p-1"
+        style={{ display: 'none', transform: 'translateX(-50%)' }}
+      >
+        <button 
+          onClick={moveObjectUp}
+          className="p-1 bg-violet-100 rounded hover:bg-violet-200 text-sm flex items-center"
+          title="Move Up Layer (Ctrl+↑)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m18 15-6-6-6 6"/>
+          </svg>
+        </button>
+        <button 
+          onClick={moveObjectDown}
+          className="p-1 bg-violet-100 rounded hover:bg-violet-200 text-sm flex items-center"
+          title="Move Down Layer (Ctrl+↓)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+      
       <ZoomSlider canvas={canvas} zoomLevel={zoomLevel}
         onZoomChange={setZoomLevel} setGridSize={setGridSize} />
     </div>

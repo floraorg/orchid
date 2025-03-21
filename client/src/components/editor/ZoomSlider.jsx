@@ -25,7 +25,7 @@ export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange, setGridSize }) => 
   );
 
   return (
-    <div className="fixed bottom-6 box-shadow-3d left-[260px] transform -translate-x-1/2 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-md border border-neutral-200 z-50 flex items-center space-x-4">
+    <div className="fixed bottom-6 box-shadow-3d left-6 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-md border border-neutral-200 z-50 flex items-center space-x-4">
       <span className="text-sm text-neutral-600 font-medium">Zoom</span>
 
       <div className="flex items-center space-x-2">

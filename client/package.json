@@ -12,8 +12,6 @@
   "dependencies": {
     "@tanstack/react-query": "^5.62.3",
     "@tanstack/react-query-devtools": "^5.62.3",
-    "@tensorflow-models/body-pix": "^2.2.1",
-    "@tensorflow/tfjs": "^4.22.0",
     "date-fns": "^4.1.0",
     "fabric": "^6.5.1",
     "lucide-react": "^0.462.0",
