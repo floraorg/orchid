@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Canvas, FabricImage, Group } from "fabric";
+import { Canvas, FabricImage, Group, ActiveSelection } from "fabric";
 import * as React from "react";
 import { ZoomSlider } from "../components/editor/ZoomSlider.jsx";
 import { useKeyboard } from "../hooks/useKeyboard.jsx";
+import { SelectedControls } from "../components/editor/SelectedControls.jsx";
 
 export const Route = createFileRoute("/editor")({
   component: RouteComponent,
@@ -21,7 +22,6 @@ function RouteComponent() {
 
   const [zoomLevel, setZoomLevel] = React.useState(100);
   const [gridSize, setGridSize] = React.useState(48);
-  const layerControlsRef = React.useRef(null);
 
   const handleGrouping = React.useCallback(() => {
     if (!canvas) return;
@@ -59,7 +59,6 @@ function RouteComponent() {
 
           item.canvas = null;
 
-          console.log(item)
           item.set({
             left: itemLeft,
             top: itemTop,
@@ -74,7 +73,7 @@ function RouteComponent() {
         });
 
         canvas.requestRenderAll();
-      })
+      });
     } else {
       const selectedObjects = canvas.getActiveObjects();
       if (selectedObjects.length <= 1) return;
@@ -112,32 +111,140 @@ function RouteComponent() {
 
   const moveObjectUp = React.useCallback(() => {
     if (!canvas) return;
-    const activeObject = canvas.getActiveObject();
-    if (!activeObject) return;
-    
+
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
     const objects = canvas.getObjects();
-    const currentIndex = objects.indexOf(activeObject);
-    
-    const newIndex = Math.min(currentIndex + 1, objects.length - 1);
-    
-    if (newIndex !== currentIndex) {
-      canvas.moveObjectTo(activeObject, newIndex);
+    const selectedObjectsWithIndices = activeObjects.map(obj => ({
+      object: obj,
+      currentIndex: objects.indexOf(obj)
+    }));
+
+    selectedObjectsWithIndices.sort((a, b) => b.currentIndex - a.currentIndex);
+
+    let changed = false;
+    selectedObjectsWithIndices.forEach(item => {
+      const currentIndex = objects.indexOf(item.object);
+      const newIndex = Math.min(currentIndex + 1, objects.length - 1);
+
+      if (newIndex !== currentIndex) {
+        canvas.moveObjectTo(item.object, newIndex);
+        changed = true;
+      }
+    });
+
+    if (changed) {
       canvas.requestRenderAll();
     }
   }, [canvas]);
 
   const moveObjectDown = React.useCallback(() => {
     if (!canvas) return;
-    const activeObject = canvas.getActiveObject();
-    if (!activeObject) return;
-    
+
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
     const objects = canvas.getObjects();
-    const currentIndex = objects.indexOf(activeObject);
-    
-    const newIndex = Math.max(currentIndex - 1, 0);
-    
-    if (newIndex !== currentIndex) {
-      canvas.moveObjectTo(activeObject, newIndex);
+    const selectedObjectsWithIndices = activeObjects.map(obj => ({
+      object: obj,
+      currentIndex: objects.indexOf(obj)
+    }));
+
+    selectedObjectsWithIndices.sort((a, b) => a.currentIndex - b.currentIndex);
+
+    let changed = false;
+    selectedObjectsWithIndices.forEach(item => {
+      const currentIndex = objects.indexOf(item.object);
+      const newIndex = Math.max(currentIndex - 1, 0);
+
+      if (newIndex !== currentIndex) {
+        canvas.moveObjectTo(item.object, newIndex);
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      canvas.requestRenderAll();
+    }
+  }, [canvas]);
+
+  const duplicateObject = React.useCallback(() => {
+    if (!canvas) return;
+
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
+    if (activeObjects.length === 1) {
+      const activeObject = activeObjects[0];
+
+      activeObject.clone().then(cloned => {
+        cloned.set({
+          left: (cloned.left || 0) + 20,
+          top: (cloned.top || 0) + 20,
+          evented: true,
+          selectable: !isHandMode
+        });
+
+        canvas.add(cloned);
+        canvas.setActiveObject(cloned);
+        canvas.requestRenderAll();
+      }).catch(err => {
+        console.error("Error duplicating object:", err);
+      });
+    } else {
+      const clonePromises = activeObjects.map(obj => obj.clone());
+
+      canvas.discardActiveObject();
+
+      Promise.all(clonePromises)
+        .then(clonedObjects => {
+          clonedObjects.forEach((cloned, index) => {
+            const original = activeObjects[index];
+
+            cloned.set({
+              left: (original.left || 0) + 20,
+              top: (original.top || 0) + 20,
+              evented: true,
+              selectable: !isHandMode,
+              canvas: null
+            });
+
+            canvas.add(cloned);
+          });
+
+          if (clonedObjects.length > 1) {
+            const selection = new ActiveSelection(clonedObjects, {
+              canvas: canvas
+            });
+            canvas.setActiveObject(selection);
+          } else if (clonedObjects.length === 1) {
+            canvas.setActiveObject(clonedObjects[0]);
+          }
+
+          canvas.requestRenderAll();
+        })
+        .catch(err => {
+          console.error("Error duplicating objects:", err);
+        });
+    }
+  }, [canvas, isHandMode]);
+
+  const deleteObject = React.useCallback(() => {
+    if (!canvas) return;
+
+    const activeObjects = canvas.getActiveObjects();
+
+    if (activeObjects.length > 0) {
+      canvas.remove(...activeObjects);
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+    } else {
+      const activeObject = canvas.getActiveObject();
+      if (!activeObject) return;
+
+      canvas.remove(activeObject);
+      canvas.discardActiveObject();
       canvas.requestRenderAll();
     }
   }, [canvas]);
@@ -146,23 +253,10 @@ function RouteComponent() {
     'ctrl g': handleGrouping,
     'ctrl up': moveObjectUp,
     'ctrl down': moveObjectDown,
+    'ctrl d': duplicateObject,
+    'delete': deleteObject,
+    'backspace': deleteObject,
   });
-
-  const updateLayerControlsPosition = React.useCallback(() => {
-    if (!canvas || !layerControlsRef.current) return;
-    
-    const activeObject = canvas.getActiveObject();
-    if (!activeObject) {
-      layerControlsRef.current.style.display = 'none';
-      return;
-    }
-    
-    const bound = activeObject.getBoundingRect();
-    
-    layerControlsRef.current.style.display = 'flex';
-    layerControlsRef.current.style.left = `${bound.left + bound.width / 2}px`;
-    layerControlsRef.current.style.top = `${bound.top - 40}px`;
-  }, [canvas]);
 
   React.useEffect(() => {
     if (canvasRef.current) {
@@ -208,62 +302,15 @@ function RouteComponent() {
       };
 
       loadImage("https://wisp.rex.wf/x/seatedro");
-      loadImage("https://wisp.rex.wf/x/minamisatokun");
-      loadImage("https://wisp.rex.wf/x/marinn1_");
+      loadImage("https://wisp.rex.wf/x/reallyrawn");
+      loadImage("https://wisp.rex.wf/x/zoriya_dev");
+      loadImage("/orchid.png");
 
       return () => {
         initCanvas.dispose();
       };
     }
   }, []);
-
-  React.useEffect(() => {
-    if (!canvas) return;
-
-    const handleSelectionCreated = () => {
-      updateLayerControlsPosition();
-    };
-
-    const handleSelectionUpdated = () => {
-      updateLayerControlsPosition();
-    };
-
-    const handleSelectionCleared = () => {
-      if (layerControlsRef.current) {
-        layerControlsRef.current.style.display = 'none';
-      }
-    };
-
-    const handleObjectModified = () => {
-      updateLayerControlsPosition();
-    };
-
-    const handleCanvasRendered = () => {
-      updateLayerControlsPosition();
-    };
-
-    canvas.on('selection:created', handleSelectionCreated);
-    canvas.on('selection:updated', handleSelectionUpdated);
-    canvas.on('selection:cleared', handleSelectionCleared);
-    canvas.on('object:modified', handleObjectModified);
-    canvas.on('object:moving', handleObjectModified);
-    canvas.on('object:scaling', handleObjectModified);
-    canvas.on('object:rotating', handleObjectModified);
-    canvas.on('after:render', handleCanvasRendered);
-    canvas.on('mouse:wheel', handleObjectModified);
-
-    return () => {
-      canvas.off('selection:created', handleSelectionCreated);
-      canvas.off('selection:updated', handleSelectionUpdated);
-      canvas.off('selection:cleared', handleSelectionCleared);
-      canvas.off('object:modified', handleObjectModified);
-      canvas.off('object:moving', handleObjectModified);
-      canvas.off('object:scaling', handleObjectModified);
-      canvas.off('object:rotating', handleObjectModified);
-      canvas.off('after:render', handleCanvasRendered);
-      canvas.off('mouse:wheel', handleObjectModified);
-    };
-  }, [canvas, updateLayerControlsPosition]);
 
   const toggleMode = () => {
     setIsHandMode((prev) => !prev);
@@ -398,34 +445,21 @@ function RouteComponent() {
       </div>
       {error && <p className="absolute top-16 left-4 text-red-500">{error}</p>}
       <canvas ref={canvasRef} />
-      
-      <div 
-        ref={layerControlsRef}
-        className="absolute z-20 flex gap-2 bg-white rounded shadow-md p-1"
-        style={{ display: 'none', transform: 'translateX(-50%)' }}
-      >
-        <button 
-          onClick={moveObjectUp}
-          className="p-1 bg-violet-100 rounded hover:bg-violet-200 text-sm flex items-center"
-          title="Move Up Layer (Ctrl+↑)"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m18 15-6-6-6 6"/>
-          </svg>
-        </button>
-        <button 
-          onClick={moveObjectDown}
-          className="p-1 bg-violet-100 rounded hover:bg-violet-200 text-sm flex items-center"
-          title="Move Down Layer (Ctrl+↓)"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m6 9 6 6 6-6"/>
-          </svg>
-        </button>
-      </div>
-      
-      <ZoomSlider canvas={canvas} zoomLevel={zoomLevel}
-        onZoomChange={setZoomLevel} setGridSize={setGridSize} />
+
+      <SelectedControls
+        canvas={canvas}
+        moveObjectUp={moveObjectUp}
+        moveObjectDown={moveObjectDown}
+        duplicateObject={duplicateObject}
+        deleteObject={deleteObject}
+      />
+
+      <ZoomSlider
+        canvas={canvas}
+        zoomLevel={zoomLevel}
+        onZoomChange={setZoomLevel}
+        setGridSize={setGridSize}
+      />
     </div>
   );
 }
