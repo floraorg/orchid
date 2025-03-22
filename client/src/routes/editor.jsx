@@ -249,6 +249,52 @@ function RouteComponent() {
     }
   }, [canvas]);
 
+  const mirrorObject = React.useCallback(() => {
+    if (!canvas) return;
+
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
+    activeObjects.forEach(obj => {
+      obj.set('scaleX', -(obj.scaleX || 1));
+      obj.setCoords();
+    });
+
+    canvas.requestRenderAll();
+  }, [canvas]);
+
+  const mirrorObjectVertically = React.useCallback(() => {
+    if (!canvas) return;
+
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
+    activeObjects.forEach(obj => {
+      obj.set('scaleY', -(obj.scaleY || 1));
+      obj.setCoords();
+    });
+
+    canvas.requestRenderAll();
+  }, [canvas]);
+
+  const setHandMode = React.useCallback(() => {
+    setIsHandMode(true);
+    if (canvas) {
+      canvas.selection = false;
+      canvas.defaultCursor = "grab";
+      canvas.setCursor("grab");
+    }
+  }, [canvas]);
+
+  const setSelectionMode = React.useCallback(() => {
+    setIsHandMode(false);
+    if (canvas) {
+      canvas.selection = true;
+      canvas.defaultCursor = "default";
+      canvas.setCursor("default");
+    }
+  }, [canvas]);
+
   useKeyboard({
     'ctrl g': handleGrouping,
     'ctrl up': moveObjectUp,
@@ -256,6 +302,10 @@ function RouteComponent() {
     'ctrl d': duplicateObject,
     'delete': deleteObject,
     'backspace': deleteObject,
+    'shift m': mirrorObjectVertically,
+    'm': mirrorObject,
+    'h': setHandMode,
+    'v': setSelectionMode,
   });
 
   React.useEffect(() => {
@@ -301,7 +351,7 @@ function RouteComponent() {
         }
       };
 
-      loadImage("https://wisp.rex.wf/x/seatedro");
+      loadImage("https://wisp.rex.wf/x/namishh__");
       loadImage("https://wisp.rex.wf/x/reallyrawn");
       loadImage("https://wisp.rex.wf/x/zoriya_dev");
       loadImage("/orchid.png");
@@ -358,15 +408,21 @@ function RouteComponent() {
           const deltaX = e.pointer.x - lastPosXRef.current;
           const deltaY = e.pointer.y - lastPosYRef.current;
 
+          const zoomFactor = zoomLevel / 100;
+          const adjustedDeltaX = deltaX / zoomFactor;
+          const adjustedDeltaY = deltaY / zoomFactor;
+
           setBackgroundPosition((prev) => ({
-            x: prev.x + deltaX,
-            y: prev.y + deltaY,
+            x: prev.x + adjustedDeltaX,
+            y: prev.y + adjustedDeltaY,
           }));
+
           canvas.getObjects().forEach((obj) => {
             obj.left += deltaX;
             obj.top += deltaY;
             obj.setCoords();
           });
+
           canvas.renderAll();
 
           lastPosXRef.current = e.pointer.x;
@@ -398,7 +454,7 @@ function RouteComponent() {
         canvas.off("touch:end", handleMouseUp);
       };
     }
-  }, [canvas, isHandMode]);
+  }, [canvas, isHandMode, zoomLevel]);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -452,6 +508,8 @@ function RouteComponent() {
         moveObjectDown={moveObjectDown}
         duplicateObject={duplicateObject}
         deleteObject={deleteObject}
+        mirrorObject={mirrorObject}
+        mirrorObjectVertically={mirrorObjectVertically}
       />
 
       <ZoomSlider
