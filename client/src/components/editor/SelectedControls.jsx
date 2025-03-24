@@ -1,8 +1,9 @@
-import { ChevronDown, Copy, Trash, ChevronUp, FlipHorizontal2, FlipVertical2 } from "lucide-react";
+import { ChevronDown, Copy, Trash, ChevronUp, FlipHorizontal2, FlipVertical2, Scissors } from "lucide-react";
 import * as React from "react";
 
 export function SelectedControls({ canvas, moveObjectUp, moveObjectDown, duplicateObject, deleteObject, mirrorObject, mirrorObjectVertically }) {
   const selectedControlsRef = React.useRef(null);
+  const [isImageSelected, setIsImageSelected] = React.useState(false);
 
   const updateSelectedControlsPosition = React.useCallback(() => {
     if (!canvas || !selectedControlsRef.current) return;
@@ -10,24 +11,36 @@ export function SelectedControls({ canvas, moveObjectUp, moveObjectDown, duplica
     const activeObject = canvas.getActiveObject();
     if (!activeObject) {
       selectedControlsRef.current.style.display = "none";
+      setIsImageSelected(false);
       return;
     }
 
-    const bound = activeObject.getBoundingRect();
+    const isImage = activeObject.type === 'image';
+    setIsImageSelected(isImage);
 
+    const bound = activeObject.getBoundingRect();
     const zoom = canvas.getZoom();
     const viewportTransform = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
 
     const transformedLeft = (bound.left * zoom) + viewportTransform[4];
     const transformedTop = (bound.top * zoom) + viewportTransform[5];
-    const transformedWidth = bound.width * zoom;
-
-    const controlLeft = transformedLeft + (transformedWidth / 2);
-    const controlTop = transformedTop - 60; 
+    const transformedHeight = bound.height * zoom;
 
     selectedControlsRef.current.style.display = "flex";
-    selectedControlsRef.current.style.left = `${controlLeft}px`;
-    selectedControlsRef.current.style.top = `${controlTop}px`;
+
+    const controlsWidth = selectedControlsRef.current.offsetWidth;
+    const controlsHeight = selectedControlsRef.current.offsetHeight;
+
+    const controlLeft = transformedLeft - controlsWidth - 10; // 10px padding
+    const controlTop = transformedTop + (transformedHeight / 2) - (controlsHeight / 2);
+
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    const clampedLeft = Math.max(0, Math.min(controlLeft, canvasWidth - controlsWidth));
+    const clampedTop = Math.max(0, Math.min(controlTop, canvasHeight - controlsHeight));
+
+    selectedControlsRef.current.style.left = `${clampedLeft}px`;
+    selectedControlsRef.current.style.top = `${clampedTop}px`;
   }, [canvas]);
 
   React.useEffect(() => {
@@ -45,6 +58,7 @@ export function SelectedControls({ canvas, moveObjectUp, moveObjectDown, duplica
       if (selectedControlsRef.current) {
         selectedControlsRef.current.style.display = "none";
       }
+      setIsImageSelected(false);
     };
 
     const handleObjectModified = () => {
@@ -81,8 +95,8 @@ export function SelectedControls({ canvas, moveObjectUp, moveObjectDown, duplica
   return (
     <div
       ref={selectedControlsRef}
-      className="absolute z-20 flex gap-2 bg-white rounded shadow-md p-1"
-      style={{ display: "none", transform: "translateX(-50%)" }}
+      className="absolute z-20 flex flex-col gap-2 bg-white rounded shadow-md p-1"
+      style={{ display: "none" }}
     >
       <button
         onClick={moveObjectUp}
@@ -119,6 +133,14 @@ export function SelectedControls({ canvas, moveObjectUp, moveObjectDown, duplica
       >
         <FlipVertical2 className="w-5 h-5" />
       </button>
+      {isImageSelected && (
+        <button
+          className="p-1.5 bg-violet-100 rounded hover:bg-violet-200 text-sm flex items-center"
+          title="Crop Image (C)"
+        >
+          <Scissors className="w-5 h-5" />
+        </button>
+      )}
       <button
         onClick={deleteObject}
         className="p-1.5 bg-violet-100 rounded hover:bg-violet-200 text-sm flex items-center"
