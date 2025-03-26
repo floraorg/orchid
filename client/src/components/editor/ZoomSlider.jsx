@@ -1,33 +1,24 @@
-import { useCallback } from "react";
+import { useEffect } from "react";
 
 export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange, setGridSize }) => {
-  const handleZoomChange = useCallback(
-    (event) => {
-      const newZoomLevel = Number(event.target.value);
+  const handleZoomChange = (event) => {
+    const newZoomLevel = Number(event.target.value);
+    onZoomChange(newZoomLevel);
+  };
 
-      if (canvas) {
-        const centerPoint = {
-          x: canvas.width / 2,
-          y: canvas.height / 2,
-        };
-        canvas.zoomToPoint(centerPoint, newZoomLevel / 100);
-        canvas.fire('zoom:changed');
-        canvas.renderAll();
-      }
-
-      if (onZoomChange) {
-        onZoomChange(newZoomLevel);
-      }
-
-    setGridSize(48 * (newZoomLevel / 100));
-    },
-    [canvas, onZoomChange],
-  );
+  useEffect(() => {
+    if (canvas) {
+      const centerPoint = { x: canvas.width / 2, y: canvas.height / 2 };
+      canvas.zoomToPoint(centerPoint, zoomLevel / 100);
+      canvas.fire("zoom:changed");
+      canvas.renderAll();
+    }
+    setGridSize(48 * (zoomLevel / 100));
+  }, [zoomLevel, canvas]);
 
   return (
-    <div className="fixed bottom-6 box-shadow-3d left-6 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-md border border-neutral-200 z-50 flex items-center space-x-4">
+    <div className="fixed bottom-6 left-6 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-md border border-neutral-200 z-50 flex items-center space-x-4">
       <span className="text-sm text-neutral-600 font-medium">Zoom</span>
-
       <div className="flex items-center space-x-2">
         <input
           type="range"
@@ -38,9 +29,8 @@ export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange, setGridSize }) => 
           onChange={handleZoomChange}
           className="w-48 accent-violet-500 h-2 rounded-lg cursor-pointer"
         />
-
         <span className="text-sm text-neutral-600 font-semibold w-12 text-right">
-          {zoomLevel}%
+          {Number(zoomLevel).toFixed(0)}%
         </span>
       </div>
     </div>
