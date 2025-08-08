@@ -56,7 +56,7 @@ const TextEditor = ({ canvas, isOpen, onClose }) => {
 
       canvas.add(text);
       canvas.setActiveObject(text);
-      canvas.renderAll();
+      canvas.requestRenderAll();
 
       setTextMode("edit");
     } else {
@@ -81,7 +81,7 @@ const TextEditor = ({ canvas, isOpen, onClose }) => {
         underline: textOptions.underline,
       });
 
-      canvas.renderAll();
+      canvas.requestRenderAll();
       setTextMode("create");
     }
   };

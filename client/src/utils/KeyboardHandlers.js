@@ -39,7 +39,7 @@ export function createKeyboardHandler(
       const center = { x: canvas.width / 2, y: canvas.height / 2 };
       canvas.zoomToPoint(center, newZoom);
       canvas.fire('zoom:changed');
-      canvas.renderAll();
+      canvas.requestRenderAll();
     }
   });
 
@@ -53,7 +53,7 @@ export function createKeyboardHandler(
       const point = { x: e.offsetX, y: e.offsetY };
       canvas.zoomToPoint(point, newZoom);
       canvas.fire('zoom:changed');
-      canvas.renderAll();
+      canvas.requestRenderAll();
     }
   }, { passive: false });
 
@@ -71,6 +71,7 @@ export function createKeyboardHandler(
     handleCopy(event, canvas);
     handleObjectPaste(event, canvas);
     handleUngroup(event, canvas);
+    handleSelectAll(event, canvas);
 
     if (event.ctrlKey) {
       if (event.key === "z") {
@@ -157,7 +158,7 @@ function handleGrouping(event, canvas) {
   selectedObjects.forEach((obj) => canvas.remove(obj));
   canvas.add(group);
   canvas.setActiveObject(group);
-  canvas.renderAll();
+  canvas.requestRenderAll();
 }
 
 function handleCopy(event, canvas) {
@@ -220,7 +221,7 @@ async function handleImagePaste(event, canvas) {
       canvas.add(fabricImage);
       canvas.centerObject(fabricImage);
       canvas.setActiveObject(fabricImage);
-      canvas.renderAll();
+      canvas.requestRenderAll();
     } catch (err) {
       console.error("Failed to paste image:", err);
     }
@@ -277,5 +278,18 @@ function handleUngroup(event, canvas) {
   canvas.discardActiveObject();
   const selection = new ActiveSelection(items, { canvas });
   canvas.setActiveObject(selection);
-  canvas.renderAll();
+  canvas.requestRenderAll();
+}
+
+// Select all objects with Ctrl+A
+function handleSelectAll(event, canvas) {
+  if (!(event.ctrlKey && event.key === "a")) return;
+
+  event.preventDefault();
+  const allObjects = canvas.getObjects();
+  if (allObjects.length === 0) return;
+
+  const selection = new ActiveSelection(allObjects, { canvas: canvas });
+  canvas.setActiveObject(selection);
+  canvas.requestRenderAll();
 }

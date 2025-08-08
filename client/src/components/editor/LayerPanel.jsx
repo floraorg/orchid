@@ -102,7 +102,7 @@ const LayerPanel = ({ canvas }) => {
     };
 
     toggleVisibilityRecursive(layer.object);
-    canvas.renderAll();
+    canvas.requestRenderAll();
     canvas.fire("object:visibility:changed");
   };
 
@@ -119,7 +119,7 @@ const LayerPanel = ({ canvas }) => {
     };
 
     toggleLockRecursive(layer.object);
-    canvas.renderAll();
+    canvas.requestRenderAll();
 
     if (!layer.locked && canvas.getActiveObject() === layer.object) {
       canvas.discardActiveObject();
@@ -147,7 +147,7 @@ const LayerPanel = ({ canvas }) => {
       objects.splice(newIndex, 0, object);
 
       group._objects = objects;
-      canvas.renderAll();
+      canvas.requestRenderAll();
       canvas.fire("object:modified");
     };
 
@@ -165,7 +165,7 @@ const LayerPanel = ({ canvas }) => {
 
       const object = objects[currentIndex];
       canvas.moveObjectTo(object, newIndex);
-      canvas.renderAll();
+      canvas.requestRenderAll();
       canvas.fire("object:modified");
     }
   };
@@ -175,7 +175,7 @@ const LayerPanel = ({ canvas }) => {
     if (!canvas || !layer.object) return;
 
     canvas.remove(layer.object);
-    canvas.renderAll();
+    canvas.requestRenderAll();
     canvas.fire("object:modified");
     canvas.fire("object:removed");
   };
@@ -211,7 +211,7 @@ const LayerPanel = ({ canvas }) => {
       // Single selection
       setSelectedLayers(new Set([layer.id]));
       canvas.setActiveObject(layer.object);
-      canvas.renderAll();
+      canvas.requestRenderAll();
     }
   };
 
@@ -252,7 +252,7 @@ const LayerPanel = ({ canvas }) => {
     objectsToGroup.forEach((obj) => canvas.remove(obj));
     canvas.add(group);
     canvas.setActiveObject(group);
-    canvas.renderAll();
+    canvas.requestRenderAll();
     setSelectedLayers(new Set());
     canvas.fire("object:modified");
   };

@@ -95,13 +95,22 @@ function RouteComponent() {
         preserveObjectStacking: true,
       });
 
+      // For double-clicks
+      let lastClickTime = 0;
+      const dblClickDelay = 300;
+
+      // To pan (or for panning, whichever is grammatically correct)
+      let isPanning = false;
+      let lastPosX, lastPosY;
+
       // Add event listener for mouse down to handle group selection
       initCanvas.on("mouse:down", (opt) => {
         const evt = opt.e;
+        const target = opt.target;
         const activeObj = initCanvas.getActiveObject();
 
         // close marketplace when clicking on canvas
-        if (!opt.target) {
+        if (!target) {
           setMarket(false);
           setShowLayers(defaultLayersPanelState);
         }
@@ -138,6 +147,29 @@ function RouteComponent() {
             underline: false,
           });
         }
+
+        // Pan the canvas view while holding Ctrl and not dragging a cavas object
+        if (!target && evt.ctrlKey) {
+          isPanning = true;
+          lastPosX = evt.clientX;
+          lastPosY = evt.clientY;
+          initCanvas.setCursor("grabbing");
+          return;
+        }
+
+        // Center canvas view to the center of double-clicked image
+        const now = Date.now();
+        let delay = (now - lastClickTime);
+        if (activeObj && activeObj.type === "image" && target && delay < dblClickDelay) {
+          const vpt = initCanvas.viewportTransform;
+          const objCenter = target.getCenterPoint();
+          vpt[4] = initCanvas.getWidth() / 2 - objCenter.x * vpt[0];
+          vpt[5] = initCanvas.getHeight() / 2 - objCenter.y * vpt[3];
+          target.setCoords();
+          initCanvas.requestRenderAll();
+        }
+        lastClickTime = now;
+
         if (evt.ctrlKey) {
           const target = opt.target;
           if (target && target.group) {
@@ -181,10 +213,26 @@ function RouteComponent() {
 
       // Update group interaction based on ctrl key
       initCanvas.on("mouse:move", (opt) => {
+        if (isPanning) {
+          const e = opt.e;
+          const vpt = initCanvas.viewportTransform;
+          vpt[4] += e.clientX - lastPosX;
+          vpt[5] += e.clientY - lastPosY;
+          initCanvas.requestRenderAll();
+          lastPosX = e.clientX;
+          lastPosY = e.clientY;
+          return;
+        }
+
         const activeObj = initCanvas.getActiveObject();
         if (activeObj && activeObj.type === "group") {
           activeObj.subTargetCheck = !opt.e.ctrlKey;
         }
+      });
+
+      initCanvas.on("mouse:up", (opt) => {
+        isPanning = false;
+        initCanvas.setCursor("default");
       });
 
       initCanvas.on("text:changed", (opt) => {

@@ -12,7 +12,7 @@ export const ZoomSlider = ({ canvas, zoomLevel, onZoomChange }) => {
         };
         canvas.zoomToPoint(centerPoint, newZoomLevel / 100);
         canvas.fire('zoom:changed');
-        canvas.renderAll();
+        canvas.requestRenderAll();
       }
 
       if (onZoomChange) {

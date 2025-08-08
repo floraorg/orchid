@@ -38,7 +38,7 @@ export class CropManager {
 
     this.canvas.add(this.cropRect);
     this.canvas.setActiveObject(this.cropRect);
-    this.canvas.renderAll();
+    this.canvas.requestRenderAll();
     return true;
   }
 
@@ -56,7 +56,7 @@ export class CropManager {
     const flipY = imageObject.flipY;
 
     imageObject.set({ angle: 0 });
-    this.canvas.renderAll();
+    this.canvas.requestRenderAll();
 
     const rect = cropRect.getBoundingRect();
     const imageRect = imageObject.getBoundingRect();
@@ -122,7 +122,7 @@ export class CropManager {
             this.canvas.setActiveObject(croppedFabricImage);
 
             this.cleanup();
-            this.canvas.renderAll();
+            this.canvas.requestRenderAll();
             resolve(true);
           };
 
@@ -156,7 +156,7 @@ export class CropManager {
 
     this.canvas.remove(this.cropRect);
     this.cleanup();
-    this.canvas.renderAll();
+    this.canvas.requestRenderAll();
     return true;
   }
 

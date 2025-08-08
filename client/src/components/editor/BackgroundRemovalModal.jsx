@@ -83,7 +83,7 @@ export default function BackgroundRemovalModal({ isOpen, onClose, canvas }) {
       canvas.remove(activeObject);
       canvas.add(img);
       canvas.setActiveObject(img);
-      canvas.renderAll();
+      canvas.requestRenderAll();
       onClose();
     } catch (err) {
       const errorMessage =

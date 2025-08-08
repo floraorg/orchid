@@ -81,7 +81,7 @@ const ImageAdjustments = ({ canvas }) => {
 
         activeObject.filters = newFilters;
         activeObject.applyFilters();
-        canvas.renderAll();
+        canvas.requestRenderAll();
       });
     },
     [activeObject, canvas],
@@ -93,7 +93,7 @@ const ImageAdjustments = ({ canvas }) => {
     requestAnimationFrame(() => {
       const currentAngle = activeObject.angle || 0;
       activeObject.rotate((currentAngle + 90) % 360);
-      canvas.renderAll();
+      canvas.requestRenderAll();
     });
   }, [activeObject, canvas]);
 
@@ -107,7 +107,7 @@ const ImageAdjustments = ({ canvas }) => {
         } else {
           activeObject.set("flipY", !activeObject.flipY);
         }
-        canvas.renderAll();
+        canvas.requestRenderAll();
       });
     },
     [activeObject, canvas],
@@ -132,7 +132,7 @@ const ImageAdjustments = ({ canvas }) => {
       });
 
       activeObject.applyFilters();
-      canvas.renderAll();
+      canvas.requestRenderAll();
     });
   }, [activeObject, canvas]);
 
